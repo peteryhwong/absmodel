@@ -1,0 +1,41 @@
+grammar org.absmodel.AbsModel with org.eclipse.xtext.xbase.Xbase
+
+generate absModel "http://www.absmodel.org/AbsModel"
+
+AbsModel:
+	moduleSection=AbsModuleSection
+	importSection=AbsImportSection?
+	elements+=ClassDeclaration*;
+
+AbsModuleSection:
+	'module' QualifiedName;
+
+AbsImportSection:
+	importDeclarations+=AbsImportDeclaration+;
+
+AbsImportDeclaration:
+	'import' (QualifiedName | QualifiedNameWithWildcard) ';';
+
+ClassDeclaration:
+	'class' name=QualifiedName ('implements' QualifiedName QualifiedName*)? '{'
+		elements+=ClassElement*
+	'}';
+
+ClassElement:
+	'{' 
+		elements+=Statement+
+	'}'
+	operations+=Method+ 
+;
+
+Method:
+	type=JvmTypeReference name=ValidID '(' 
+		(params+=FullJvmFormalParameter (',' params+=FullJvmFormalParameter)*)?   
+	')' '{'
+		
+	'}'
+;
+
+Statement:
+	' '
+;
