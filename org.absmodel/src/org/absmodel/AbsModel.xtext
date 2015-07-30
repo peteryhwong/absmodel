@@ -23,19 +23,32 @@ ClassDeclaration:
 
 ClassElement:
 	'{' 
-		elements+=Statement+
+		elements+=SyncStatement+
 	'}'
 	operations+=Method+ 
 ;
 
 Method:
 	type=JvmTypeReference name=ValidID '(' 
-		(params+=FullJvmFormalParameter (',' params+=FullJvmFormalParameter)*)?   
+		(params+=FormalParam (',' params+=FormalParam)*)?   
 	')' '{'
-		
+		element+=Statement+
 	'}'
 ;
 
+FormalParam:
+	param=FullJvmFormalParameter
+;
+
 Statement:
+	AsyncStatement | SyncStatement
+;
+
+AsyncStatement:
+	' '
+;
+
+
+SyncStatement:
 	' '
 ;
