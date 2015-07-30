@@ -5,10 +5,13 @@ generate absModel "http://www.absmodel.org/AbsModel"
 AbsModel:
 	moduleSection=AbsModuleSection
 	importSection=AbsImportSection?
-	elements+=ClassDeclaration*;
+	declarations+=(InterfaceDeclaration | ClassDeclaration)*
+	'{'
+		(statements+=Statement';')*
+	'}';
 
 AbsModuleSection:
-	'module' QualifiedName;
+	'module' QualifiedName ';';
 
 AbsImportSection:
 	importDeclarations+=AbsImportDeclaration+;
@@ -16,23 +19,34 @@ AbsImportSection:
 AbsImportDeclaration:
 	'import' (QualifiedName | QualifiedNameWithWildcard) ';';
 
-ClassDeclaration:
-	'class' name=QualifiedName ('implements' QualifiedName QualifiedName*)? '{'
-		elements+=ClassElement*
+InterfaceDeclaration:
+	'interface' name=ValidID ('extends' QualifiedName QualifiedName*)? '{'
+		(elements+=MethodSignature ';')*
 	'}';
 
-ClassElement:
-	'{' 
-		elements+=SyncStatement+
-	'}'
-	operations+=Method+ 
+MethodSignature:
+	type=JvmTypeReference name=ValidID '(' 
+		(params+=FormalParam (',' params+=FormalParam)*)?   
+	')'
+;
+
+ClassDeclaration:
+	'class' name=ValidID ('implements' QualifiedName QualifiedName*)? '{'
+		('{' 
+			(elements+=SyncStatement';')*
+		'}')?
+		(fields+=Field';')*
+		(operations+=Method)* 
+	'}';
+	
+Field:
+	QualifiedName name=ValidID
 ;
 
 Method:
-	type=JvmTypeReference name=ValidID '(' 
-		(params+=FormalParam (',' params+=FormalParam)*)?   
-	')' '{'
-		element+=Statement+
+	MethodSignature '{'
+		(element+=Statement';')*
+		('return' exp=PureExpression ';')?
 	'}'
 ;
 
@@ -41,13 +55,16 @@ FormalParam:
 ;
 
 Statement:
-	AsyncStatement | SyncStatement
+	AsyncStatement | SyncStatement | PureExpression
 ;
 
 AsyncStatement:
 	' '
 ;
 
+PureExpression:
+	' '
+;
 
 SyncStatement:
 	' '
