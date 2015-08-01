@@ -5,7 +5,7 @@ generate absModel "http://www.absmodel.org/AbsModel"
 AbsModel:
 	moduleSection=AbsModuleSection
 	importSection=AbsImportSection?
-	declarations+=(InterfaceDeclaration | ClassDeclaration)*
+	declarations+=(DataTypeDeclaration | FunctionDeclaration | InterfaceDeclaration | ClassDeclaration)*
 	'{'
 		(statements+=Statement';')*
 	'}';
@@ -19,8 +19,32 @@ AbsImportSection:
 AbsImportDeclaration:
 	'import' (QualifiedName | QualifiedNameWithWildcard) ';';
 
+GenericType:
+	'<' TypeParam '>'
+;	
+
+TypeParam :
+	ValidID (',' ValidID)*	
+;
+
+QualifiedTypeParam :
+	QualifiedName (',' QualifiedName)*
+;
+	
+DataTypeDeclaration :
+	'data' name=ValidID type=GenericType ' = ' (conts+=TypeConstructor ('|' const+=TypeConstructor)*) ';'
+;
+
+TypeConstructor:
+	const=ValidID ('(' type = TypeParam ')')?
+;	
+
+FunctionDeclaration :
+	'fun' name=ValidID type=GenericType ' = ' (conts+=TypeConstructor ('|' const+=TypeConstructor)*) ';'
+;	
+
 InterfaceDeclaration:
-	'interface' name=ValidID ('extends' QualifiedName QualifiedName*)? '{'
+	'interface' name=ValidID ('extends' type=QualifiedTypeParam)? '{'
 		(elements+=MethodSignature ';')*
 	'}';
 
@@ -31,7 +55,7 @@ MethodSignature:
 ;
 
 ClassDeclaration:
-	'class' name=ValidID ('implements' QualifiedName QualifiedName*)? '{'
+	'class' name=ValidID ('implements' type=QualifiedTypeParam)? '{'
 		('{' 
 			(elements+=SyncStatement';')*
 		'}')?
