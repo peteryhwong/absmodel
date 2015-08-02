@@ -7,7 +7,7 @@ AbsModel:
 	importSection=AbsImportSection?
 	declarations+=(
 		DataTypeDeclaration | 
-		TypeDeclaration |
+		TypeSynonymDeclaration |
 		FunctionDeclaration | 
 		InterfaceDeclaration | 
 		ClassDeclaration)*
@@ -22,48 +22,60 @@ AbsImportSection:
 	importDeclarations+=AbsImportDeclaration+;
 
 AbsImportDeclaration:
-	'import' (QualifiedName | QualifiedNameWithWildcard) ';';
+	'import' QualifiedTypeIdentifier '.*'? ';';
+
+QualifiedTypeIdentifier :
+	QualifiedName
+;
+
+Identifier :
+	ValidID
+;
+
+TypeExpression :
+	QualifiedTypeIdentifier 
+;
+
+TypeExpressionList :
+	TypeExpression (',' TypeExpression)*
+;
 
 GenericType:
-	'<' TypeParam '>'
+	'<' TypeExpressionList '>'
 ;	
 
-TypeParam :
-	ValidID (',' ValidID)*	
-;
-
-QualifiedTypeParam :
-	QualifiedName (',' QualifiedName)*
-;
-
-TypeDeclaration :
-	'type' name=ValidID '=' data=ValidID (type=GenericType)? ';'
+TypeSynonymDeclaration :
+	'type' name=Identifier '=' data=ValidID (type=GenericType)? ';'
 ;
 	
 DataTypeDeclaration :
-	'data' name=ValidID (type=GenericType)? ' = ' (conts+=TypeConstructor ('|' const+=TypeConstructor)*) ';'
+	'data' name=Identifier (type=GenericType)? ' = ' (conts+=TypeConstructor ('|' const+=TypeConstructor)*) ';'
 ;
 
 TypeConstructor:
-	name=ValidID ('(' type = TypeParam ')')?
+	name=ValidID ('(' type = TypeExpressionList ')')?
 ;	
 
 FunctionDeclaration :
-	'def' returnType=ValidID name=ValidID type=GenericType param=ParamList
+	'def' returnType=TypeExpression name=Identifier type=GenericType param=ParamList
 	' = ' 
 	('builtin' | exp = FunPureExpression )  ';'
 ;
 
 PureExpression returns Expression :
-	PureExpression2  ({Expression.left=current} op = BinaryOp rexp = PureExpression)* 
+	PureExpression2  ({Expression.left=current} op = BinaryOp right = PureExpression)* 
 ;
 
 PureExpression2 returns Expression :
-	fun = ValidID '(' param += PureExpression (',' param += PureExpression) * ')' |
+	fun = ValidID '(' params = PureExpressionList ')' |
 	op = UnaryOp exp = PureExpression |
 	int = INT |
 	string = STRING |
 	'(' exp = PureExpression ')'
+;
+
+PureExpressionList :
+	param += PureExpression (',' param += PureExpression) *
 ;
 
 FunPureExpression returns Expression :
@@ -75,12 +87,15 @@ CaseBranch:
 	pattern = Pattern '=>' exp = FunPureExpression ';'
 ;
 
-Pattern :
-	' '
+Pattern : 
+	INT | 
+	STRING | 
+	Identifier |
+	QualifiedTypeIdentifier ( '(' Pattern (',' Pattern)* ')' )?
 ;
 
 InterfaceDeclaration:
-	'interface' name=ValidID ('extends' type=QualifiedTypeParam)? '{'
+	'interface' name=Identifier ('extends' type += TypeExpressionList)? '{'
 		(elements+=MethodSignature ';')*
 	'}'
 ;
@@ -94,27 +109,27 @@ MethodSignature:
 ;
 
 ClassDeclaration:
-	'class' name=ValidID param=ParamList? ('implements' type=QualifiedTypeParam)? '{'
+	'class' name=ValidID param=ParamList? ('implements' type += TypeExpressionList)? '{'
 		('{' 
-			(elements+=SyncStatement';')*
+			(elements+=SyncStatement)*
 		'}')?
 		(fields+=Field';')*
 		(operations+=Method)* 
 	'}';
 	
 Field:
-	type=QualifiedName name=ValidID
+	type=TypeExpression name=Identifier
 ;
 
 Method:
 	MethodSignature '{'
-		(element+=Statement';')*
+		element+=Statement*
 		('return' exp=PureExpression ';')?
 	'}'
 ;
 
 FormalParam:
-	param=FullJvmFormalParameter
+	type = TypeExpression name = Identifier
 ;
 
 Statement:
@@ -122,11 +137,44 @@ Statement:
 ;
 
 AsyncStatement returns Expression:
-	' '
+	SyncStatement |
+	stmt = '{' stmts += AsyncStatement* '}' |
+	'if' '(' exp = PureExpression ')' then = AsyncStatement ('else' else = SyncStatement)? |
+	'while' '(' exp = PureExpression ')' do = AsyncStatement |
+	((type = TypeExpression)? name = Identifier '=')? exp = (AsyncExpression | PureExpression) ';' |
+	'await' guard = GuardExpression '?' ';' |
+	stmt = 'suspend' ';'
+;
+
+AsyncExpression returns Expression :
+	'new' contructor = TypeExpression '(' params = PureExpressionList ')' |
+	'await'? object = PureExpression '!' method = Identifier '(' params = PureExpressionList ')' 
+;
+
+GuardExpression returns GuardExpression :
+	GuardExpression2  ({GuardExpression.left=current} '&' right = GuardExpression)* 
+;
+
+GuardExpression2 returns GuardExpression :
+	variable = Identifier '?' |
+	'duration' '(' min = PureExpression ',' max = PureExpression ')' |
+	exp = PureExpression |
+	'(' GuardExpression ')'
 ;
 
 SyncStatement returns Expression:
-	' '
+	stmt = 'skip' ';' |
+	stmt = 'assert' exp = PureExpression ';' | 
+	stmt = '{' stmts += SyncStatement* '}' |
+	'if' '(' exp = PureExpression ')' then = SyncStatement ('else' else = SyncStatement)? |
+	'while' '(' exp = PureExpression ')' do = SyncStatement |
+	((type = TypeExpression)? name = Identifier '=')? exp = (SyncExpression | PureExpression) ';'
+;
+
+SyncExpression returns Expression:
+	'new' 'local' contructor = TypeExpression '(' params = PureExpressionList ')' |
+	object = PureExpression '.' method = Identifier '(' params = PureExpressionList ')' |
+	exp = PureExpression '.' 'get'
 ;
 
 UnaryOp :
