@@ -5,7 +5,12 @@ generate absModel "http://www.absmodel.org/AbsModel"
 AbsModel:
 	moduleSection=AbsModuleSection
 	importSection=AbsImportSection?
-	declarations+=(DataTypeDeclaration | FunctionDeclaration | InterfaceDeclaration | ClassDeclaration)*
+	declarations+=(
+		DataTypeDeclaration | 
+		TypeDeclaration |
+		FunctionDeclaration | 
+		InterfaceDeclaration | 
+		ClassDeclaration)*
 	'{'
 		(statements+=Statement';')*
 	'}';
@@ -30,32 +35,66 @@ TypeParam :
 QualifiedTypeParam :
 	QualifiedName (',' QualifiedName)*
 ;
+
+TypeDeclaration :
+	'type' name=ValidID '=' data=ValidID (type=GenericType)? ';'
+;
 	
 DataTypeDeclaration :
-	'data' name=ValidID type=GenericType ' = ' (conts+=TypeConstructor ('|' const+=TypeConstructor)*) ';'
+	'data' name=ValidID (type=GenericType)? ' = ' (conts+=TypeConstructor ('|' const+=TypeConstructor)*) ';'
 ;
 
 TypeConstructor:
-	const=ValidID ('(' type = TypeParam ')')?
+	name=ValidID ('(' type = TypeParam ')')?
 ;	
 
 FunctionDeclaration :
-	'fun' name=ValidID type=GenericType ' = ' (conts+=TypeConstructor ('|' const+=TypeConstructor)*) ';'
-;	
+	'def' returnType=ValidID name=ValidID type=GenericType param=ParamList
+	' = ' 
+	('builtin' | exp = FunPureExpression )  ';'
+;
+
+PureExpression returns Expression :
+	PureExpression2  ({Expression.left=current} op = BinaryOp rexp = PureExpression)* 
+;
+
+PureExpression2 returns Expression :
+	fun = ValidID '(' param += PureExpression (',' param += PureExpression) * ')' |
+	op = UnaryOp exp = PureExpression |
+	int = INT |
+	string = STRING |
+	'(' exp = PureExpression ')'
+;
+
+FunPureExpression returns Expression :
+	exp = PureExpression |
+	'case' cexp = FunPureExpression '{' branch += CaseBranch*  '}' 
+;
+
+CaseBranch:
+	pattern = Pattern '=>' exp = FunPureExpression ';'
+;
+
+Pattern :
+	' '
+;
 
 InterfaceDeclaration:
 	'interface' name=ValidID ('extends' type=QualifiedTypeParam)? '{'
 		(elements+=MethodSignature ';')*
-	'}';
+	'}'
+;
+
+ParamList:
+	paramList = '(' ( params+=FormalParam (',' params+=FormalParam)* )? ')'
+;
 
 MethodSignature:
-	type=JvmTypeReference name=ValidID '(' 
-		(params+=FormalParam (',' params+=FormalParam)*)?   
-	')'
+	type=JvmTypeReference name=ValidID param=ParamList
 ;
 
 ClassDeclaration:
-	'class' name=ValidID ('implements' type=QualifiedTypeParam)? '{'
+	'class' name=ValidID param=ParamList? ('implements' type=QualifiedTypeParam)? '{'
 		('{' 
 			(elements+=SyncStatement';')*
 		'}')?
@@ -64,7 +103,7 @@ ClassDeclaration:
 	'}';
 	
 Field:
-	QualifiedName name=ValidID
+	type=QualifiedName name=ValidID
 ;
 
 Method:
@@ -79,17 +118,49 @@ FormalParam:
 ;
 
 Statement:
-	AsyncStatement | SyncStatement | PureExpression
+	stmt = (AsyncStatement | SyncStatement | PureExpression)
 ;
 
-AsyncStatement:
+AsyncStatement returns Expression:
 	' '
 ;
 
-PureExpression:
+SyncStatement returns Expression:
 	' '
 ;
 
-SyncStatement:
-	' '
+UnaryOp :
+	Neg | Minus
 ;
+
+ArithBinaryOp :
+	Add | Minus | Mult | Div | Mod 
+;
+
+EqualityBinaryOp : 
+	Leq | Geq | Lt | Gt | Eq | Ne
+;
+
+ConditionBinaryOp : 
+	And | Or
+;
+
+BinaryOp :
+	ArithBinaryOp | EqualityBinaryOp | ConditionBinaryOp
+;
+
+Neg : '!' ;
+Add : '+' ;
+Minus : '-' ;
+Mult : '*' ;
+Div : '/' ;
+Mod : '%' ;
+Plus : '+' ;
+Leq : '<=' ;
+Geq : '>=' ;
+Lt : '<' ;
+Gt : '>' ;
+And : '&&' ;
+Or : '||' ;
+Eq : '==' ;
+Ne : '!=' ;
