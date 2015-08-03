@@ -12,7 +12,7 @@ AbsModel:
 		InterfaceDeclaration | 
 		ClassDeclaration)*
 	'{'
-		(statements+=Statement';')*
+		statements+=Statement*
 	'}';
 
 AbsModuleSection:
